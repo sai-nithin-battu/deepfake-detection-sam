@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Layer CLIP ViT-L/14 Deepfake Triage — Streamlit Preview</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-2: #f1f5f9;
+      --sidebar-bg: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #475569;
+      --accent: #0f766e;
+      --accent-soft: #ccfbf1;
+      --flag-bg: #fee2e2;
+      --flag-border: #ef4444;
+      --flag-text: #991b1b;
+      --rev-bg: #fef3c7;
+      --rev-border: #f59e0b;
+      --rev-text: #92400e;
+      --pass-bg: #dcfce7;
+      --pass-border: #22c55e;
+      --pass-text: #166534;
+      --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+
+    body.dark {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-2: #1e293b;
+      --sidebar-bg: #0f172a;
+      --border: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #2dd4bf;
+      --accent-soft: rgba(45, 212, 191, 0.15);
+      --flag-bg: rgba(239, 68, 68, 0.16);
+      --flag-border: #ef4444;
+      --flag-text: #fca5a5;
+      --rev-bg: rgba(245, 158, 11, 0.16);
+      --rev-border: #f59e0b;
+      --rev-text: #fcd34d;
+      --pass-bg: rgba(34, 197, 94, 0.16);
+      --pass-border: #22c55e;
+      --pass-text: #86efac;
+      --shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      min-height: 100vh;
+    }
+
+    aside {
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      padding: 20px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 4px 8px;
+      border-radius: 999px;
+    }
+
+    button.btn-icon, button.btn-secondary {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.btn-icon:hover, button.btn-secondary:hover {
+      border-color: var(--accent);
+    }
+
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .control-group input[type="text"] {
+      width: 100%;
+      padding: 7px 9px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .control-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 9px 11px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .toggle-row input {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .bench-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 12px;
+    }
+
+    .bench-box h4 {
+      margin: 0 0 8px 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+    }
+
+    .bench-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px dashed var(--border);
+    }
+    .bench-item:last-child { border-bottom: none; }
+
+    main {
+      padding: 24px 28px 40px;
+      max-width: 1220px;
+      width: 100%;
+    }
+
+    .top-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 4px 0;
+      font-size: 24px;
+      line-height: 1.25;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+    }
+
+    .tab-btn {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 13px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .preset-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .preset-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-right: 4px;
+    }
+
+    .preset-btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .preset-btn.selected {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    .upload-strip {
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .metric-val {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .zone-banner {
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      border-left: 5px solid var(--rev-border);
+      background: var(--rev-bg);
+      color: var(--rev-text);
+      box-shadow: var(--shadow);
+    }
+
+    .zone-banner.zone-1 {
+      background: var(--flag-bg);
+      border-left-color: var(--flag-border);
+      color: var(--flag-text);
+    }
+
+    .zone-banner.zone-3 {
+      background: var(--pass-bg);
+      border-left-color: var(--pass-border);
+      color: var(--pass-text);
+    }
+
+    .zone-banner h2 {
+      margin: 0 0 4px 0;
+      font-size: 17px;
+    }
+
+    .zone-banner p {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.95;
+    }
+
+    .visual-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+    }
+
+    .canvas-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    canvas {
+      width: 256px;
+      height: 256px;
+      border-radius: 6px;
+      image-rendering: pixelated;
+    }
+
+    .panel-foot {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .sam-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .sam-grid {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 18px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    th {
+      background: var(--surface-2);
+      font-weight: 700;
+    }
+
+    .num { text-align: center; font-variant-numeric: tabular-nums; }
+    .best-col { font-weight: 700; color: var(--accent); }
+
+    @media (max-width: 900px) {
+      .app-shell { grid-template-columns: 1fr; }
+      aside { border-right: none; border-bottom: 1px solid var(--border); }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      .visual-grid { grid-template-columns: 1fr; }
+      .sam-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside>
+      <div class="brand-row">
+        <span class="brand-badge">Streamlit UI Preview</span>
+        <button class="btn-icon" id="themeToggle" type="button">Dark Mode</button>
+      </div>
+
+      <div class="control-group">
+        <label for="headPath">Multi-Layer CLIP Head Path</label>
+        <input id="headPath" type="text" value="weights/clip_vit_l14_multilayer_head.pth" />
+      </div>
+
+      <div class="control-group">
+        <label for="samPath">Optional EffNet-B4 + SAM Path</label>
+        <input id="samPath" type="text" value="weights/best_efficientnet_b4_sam.pth" />
+      </div>
+
+      <div class="toggle-row">
+        <span>Horizontal-Flip TTA</span>
+        <input id="ttaToggle" type="checkbox" checked />
+      </div>
+
+      <div class="control-group">
+        <label for="flagSlider">
+          <span>Zone 1 Auto-Flag: P(Real) &lt;</span>
+          <span id="flagVal">0.30</span>
+        </label>
+        <input id="flagSlider" type="range" min="0.10" max="0.45" step="0.05" value="0.30" />
+      </div>
+
+      <div class="control-group">
+        <label for="passSlider">
+          <span>Zone 3 Auto-Pass: P(Real) &gt;</span>
+          <span id="passVal">0.70</span>
+        </label>
+        <input id="passSlider" type="range" min="0.55" max="0.90" step="0.05" value="0.70" />
+      </div>
+
+      <div class="control-group">
+        <label for="alphaSlider">
+          <span>Heatmap Overlay Opacity</span>
+          <span id="alphaVal">0.45</span>
+        </label>
+        <input id="alphaSlider" type="range" min="0.15" max="0.80" step="0.05" value="0.45" />
+      </div>
+
+      <div class="bench-box">
+        <h4>Reported Benchmarks (Model 4)</h4>
+        <div class="bench-item"><span>140k Test</span><strong>99.37% (0.9995)</strong></div>
+        <div class="bench-item"><span>FF++ C23 (Safe)</span><strong>82.27% (0.9171)</strong></div>
+        <div class="bench-item"><span>CIPLab (Unseen)</span><strong>85.15% (0.9183)</strong></div>
+        <div class="bench-item"><span>Celeb-DF v2</span><strong>73.10% / 70.71%</strong></div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="top-header">
+        <div>
+          <h1>Multi-Layer CLIP ViT-L/14 Deepfake Detection &amp; 3-Zone Moderation Triage</h1>
+          <p class="subtitle">MSc Computing Artefact · Teesside University (SCEDT) · Ethics Clearance Ref: 2026 Oct 36071 BATTU</p>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="triageTab" type="button">Live Triage &amp; Heatmaps</button>
+        <button class="tab-btn" data-tab="benchTab" type="button">4-Stage Benchmark Summary</button>
+      </div>
+
+      <div id="triageTab">
+        <div class="preset-bar">
+          <span class="preset-label">Sample Scenarios:</span>
+          <button class="preset-btn selected" data-preset="fake_ffpp" type="button">Zone 1: FF++ Fake (P(Real)=0.11)</button>
+          <button class="preset-btn" data-preset="borderline_celeb" type="button">Zone 2: Celeb-DF Borderline (P(Real)=0.49)</button>
+          <button class="preset-btn" data-preset="real_ciplab" type="button">Zone 3: CIPLab Real (P(Real)=0.94)</button>
+        </div>
+
+        <div class="upload-strip">
+          <div>
+            <strong>Custom Face Image:</strong> Upload a local JPG/PNG/WEBP to preview visual layout locally (browser-only preview).
+          </div>
+          <input id="imgUpload" type="file" accept="image/jpeg,image/png,image/webp" />
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-title">P(Real)</div>
+            <div class="metric-val" id="mProbReal">11.40%</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">P(Fake)</div>
+            <div class="metric-val" id="mProbFake">88.60%</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Binary Verdict (τ = 0.50)</div>
+            <div class="metric-val" id="mVerdict">Fake</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">TTA Mode</div>
+            <div class="metric-val" id="mTta">Enabled (2-view)</div>
+          </div>
+        </div>
+
+        <div class="zone-banner zone-1" id="zoneBanner">
+          <h2 id="zoneTitle">Zone 1: Auto-Flag / Quarantine</h2>
+          <p id="zoneDesc">High-confidence synthetic indicator (P(Real) &lt; threshold). Route to quarantine / priority compliance review.</p>
+        </div>
+
+        <div class="visual-grid">
+          <div class="panel">
+            <h3>Input Face (224 × 224)</h3>
+            <div class="canvas-wrap">
+              <canvas id="origCanvas" width="224" height="224"></canvas>
+            </div>
+            <div class="panel-foot" id="origFoot">Bicubic resized 224 × 224 face crop with CLIP normalisation stats.</div>
+          </div>
+
+          <div class="panel">
+            <h3>CLIP ViT-L/14 CLS-to-Patch Attention</h3>
+            <div class="canvas-wrap">
+              <canvas id="clipCanvas" width="224" height="224"></canvas>
+            </div>
+            <div class="panel-foot">Mean attention across ViT-L/14 heads from [CLS] to 16 × 16 spatial patches (inferno colormap).</div>
+          </div>
+        </div>
+
+        <div class="sam-section">
+          <h3>Comparison Baseline: EfficientNet-B4 + SAM Grad-CAM</h3>
+          <div class="sam-grid">
+            <div class="canvas-wrap">
+              <canvas id="samCanvas" width="224" height="224"></canvas>
+            </div>
+            <div>
+              <div class="metric-card" style="margin-bottom: 10px; max-width: 240px;">
+                <div class="metric-title">EffNet-B4 + SAM P(Real)</div>
+                <div class="metric-val" id="mSamReal">78.20%</div>
+              </div>
+              <p class="subtitle">
+                Optional comparison hook when <code>best_efficientnet_b4_sam.pth</code> is provided. Highlights how CNN
+                spatial attention can drift toward background or forehead regions on unseen external benchmarks.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="benchTab" style="display: none;">
+        <div class="table-card">
+          <h3 style="margin-top: 0;">Four-Stage Progression: Accuracy (%) &amp; ROC-AUC</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Benchmark Dataset</th>
+                <th class="num">Model 1: EffNet-B4</th>
+                <th class="num">Model 2: EffNet-B4 + SAM</th>
+                <th class="num">Model 3: CLIP (Final)</th>
+                <th class="num">Model 4: Multi-Layer CLIP + TTA</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>140k Official Test</strong> (In-Domain)</td>
+                <td class="num">95.67% (0.9942)</td>
+                <td class="num">92.05% (0.9781)</td>
+                <td class="num">98.03% (0.9979)</td>
+                <td class="num best-col">99.37% (0.9995)</td>
+              </tr>
+              <tr>
+                <td><strong>FaceForensics++ C23</strong> (Video-Safe)</td>
+                <td class="num">51.00% (0.5127)</td>
+                <td class="num">56.65% (0.6079)</td>
+                <td class="num">75.33% (0.8384)</td>
+                <td class="num best-col">82.27% (0.9171)</td>
+              </tr>
+              <tr>
+                <td><strong>CIPLab Faces</strong> (Unseen External)</td>
+                <td class="num">51.74% (0.4670)</td>
+                <td class="num">52.33% (0.4932)</td>
+                <td class="num">82.70% (0.8895)</td>
+                <td class="num best-col">85.15% (0.9183)</td>
+              </tr>
+              <tr>
+                <td><strong>Celeb-DF v2 Frame-Level</strong> (Unseen)</td>
+                <td class="num">53.40% (0.5767)</td>
+                <td class="num">65.20% (0.7112)</td>
+                <td class="num">66.53% (0.7833)</td>
+                <td class="num best-col">73.10% (0.8197)</td>
+              </tr>
+              <tr>
+                <td><strong>Celeb-DF v2 Video-Level</strong> (n = 2,045)</td>
+                <td class="num">—</td>
+                <td class="num">—</td>
+                <td class="num">—</td>
+                <td class="num best-col">70.71% (0.8259)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const PRESETS = {
+      fake_ffpp: {
+        probRealTta: 0.114,
+        probRealNoTta: 0.148,
+        samProbReal: 0.782,
+        skinTone: [198, 152, 124],
+        bgTone: [44, 56, 72],
+        clipFocus: [
+          { x: 0.50, y: 0.62, r: 0.16, w: 1.0 },
+          { x: 0.42, y: 0.43, r: 0.12, w: 0.75 },
+          { x: 0.58, y: 0.43, r: 0.12, w: 0.75 }
+        ],
+        samFocus: [
+          { x: 0.50, y: 0.24, r: 0.20, w: 0.95 },
+          { x: 0.18, y: 0.22, r: 0.22, w: 0.70 }
+        ],
+        note: "Simulated FF++ C23 manipulated frame — synthetic mouth/eye region cues route to Zone 1 Auto-Flag."
+      },
+      borderline_celeb: {
+        probRealTta: 0.492,
+        probRealNoTta: 0.564,
+        samProbReal: 0.845,
+        skinTone: [212, 168, 138],
+        bgTone: [52, 64, 78],
+        clipFocus: [
+          { x: 0.50, y: 0.56, r: 0.22, w: 0.85 },
+          { x: 0.50, y: 0.44, r: 0.15, w: 0.65 }
+        ],
+        samFocus: [
+          { x: 0.82, y: 0.30, r: 0.24, w: 0.90 },
+          { x: 0.50, y: 0.28, r: 0.18, w: 0.65 }
+        ],
+        note: "Simulated colour-corrected Celeb-DF v2 swap — lands inside 0.30–0.70 Human Moderator Triage Queue."
+      },
+      real_ciplab: {
+        probRealTta: 0.942,
+        probRealNoTta: 0.918,
+        samProbReal: 0.912,
+        skinTone: [182, 134, 102],
+        bgTone: [66, 82, 68],
+        clipFocus: [
+          { x: 0.43, y: 0.42, r: 0.14, w: 0.70 },
+          { x: 0.57, y: 0.42, r: 0.14, w: 0.70 },
+          { x: 0.50, y: 0.58, r: 0.15, w: 0.60 }
+        ],
+        samFocus: [
+          { x: 0.50, y: 0.46, r: 0.22, w: 0.80 }
+        ],
+        note: "Simulated authentic CIPLab portrait — high P(Real) clears directly into Zone 3 Auto-Approve."
+      }
+    };
+
+    let currentPresetKey = "fake_ffpp";
+    let customImageData = null;
+
+    const origCanvas = document.getElementById("origCanvas");
+    const clipCanvas = document.getElementById("clipCanvas");
+    const samCanvas = document.getElementById("samCanvas");
+
+    function drawPortraitBase(ctx, preset) {
+      const w = 224, h = 224;
+      if (customImageData) {
+        ctx.putImageData(customImageData, 0, 0);
+        return;
+      }
+      const [bgR, bgG, bgB] = preset.bgTone;
+      const [skR, skG, skB] = preset.skinTone;
+
+      ctx.fillStyle = `rgb(${bgR},${bgG},${bgB})`;
+      ctx.fillRect(0, 0, w, h);
+
+      // Soft studio backdrop gradient
+      const grad = ctx.createRadialGradient(112, 95, 18, 112, 112, 130);
+      grad.addColorStop(0, `rgba(${Math.min(255, bgR + 45)}, ${Math.min(255, bgG + 45)}, ${Math.min(255, bgB + 45)}, 0.75)`);
+      grad.addColorStop(1, `rgba(${bgR}, ${bgG}, ${bgB}, 1)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Shoulders
+      ctx.fillStyle = "rgb(30, 41, 59)";
+      ctx.beginPath();
+      ctx.ellipse(112, 212, 76, 42, 0, Math.PI, 0);
+      ctx.fill();
+
+      // Neck & Face oval
+      ctx.fillStyle = `rgb(${Math.max(0, skR - 14)}, ${Math.max(0, skG - 14)}, ${Math.max(0, skB - 14)})`;
+      ctx.fillRect(92, 140, 40, 38);
+
+      ctx.fillStyle = `rgb(${skR}, ${skG}, ${skB})`;
+      ctx.beginPath();
+      ctx.ellipse(112, 108, 46, 58, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Hair cap
+      ctx.fillStyle = "rgb(24, 24, 27)";
+      ctx.beginPath();
+      ctx.ellipse(112, 68, 48, 26, 0, Math.PI, 0);
+      ctx.fill();
+
+      // Eyes & brows
+      ctx.strokeStyle = "rgb(24, 24, 27)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(78, 86); ctx.quadraticCurveTo(92, 81, 103, 86);
+      ctx.moveTo(121, 86); ctx.quadraticCurveTo(132, 81, 146, 86);
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.ellipse(91, 98, 9, 5, 0, 0, Math.PI * 2);
+      ctx.ellipse(133, 98, 9, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgb(17, 24, 39)";
+      ctx.beginPath();
+      ctx.arc(91, 98, 3.8, 0, Math.PI * 2);
+      ctx.arc(133, 98, 3.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Nose & mouth
+      ctx.strokeStyle = `rgba(90, 52, 36, 0.65)`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(112, 96); ctx.lineTo(108, 118); ctx.lineTo(117, 120);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgb(153, 55, 65)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.quadraticCurveTo(112, 138, 127, 131);
+      ctx.moveTo(97, 131); ctx.quadraticCurveTo(112, 138, 127, 131);
+      ctx.stroke();
+    }
+
+    function heatmapColor(val, mode) {
+      const t = Math.max(0, Math.min(1, val));
+      if (mode === "jet") {
+        const r = Math.min(255, Math.max(0, Math.round(255 * Math.min(1, Math.max(0, 1.5 - Math.abs(4 * t - 3))))));
+        const g = Math.min(255, Math.max(0, Math.round(255 * Math.min(1, Math.max(0, 1.5 - Math.abs(4 * t - 2))))));
+        const b = Math.min(255, Math.max(0, Math.round(255 * Math.min(1, Math.max(0, 1.5 - Math.abs(4 * t - 1))))));
+        return [r, g, b];
+      }
+      // inferno-like warm ramp
+      const r = Math.min(255, Math.round(255 * Math.pow(t, 0.65)));
+      const g = Math.min(255, Math.round(215 * Math.pow(t, 1.45)));
+      const b = Math.min(255, Math.round(140 * Math.sin(Math.PI * Math.min(1, t * 0.85)) + 20 * t));
+      return [r, g, b];
+    }
+
+    function renderHeatmapCanvas(targetCanvas, baseImgData, foci, mode, alpha) {
+      const ctx = targetCanvas.getContext("2d");
+      const w = 224, h = 224;
+      const out = ctx.createImageData(w, h);
+      const src = baseImgData.data;
+      const dst = out.data;
+
+      for (let y = 0; y < h; y++) {
+        const ny = y / h;
+        for (let x = 0; x < w; x++) {
+          const nx = x / w;
+          let heat = 0.08;
+          for (const f of foci) {
+            const dx = nx - f.x;
+            const dy = ny - f.y;
+            const d2 = (dx * dx + dy * dy) / (f.r * f.r);
+            heat += f.w * Math.exp(-d2 * 1.4);
+          }
+          heat = Math.min(1, heat);
+          const [hr, hg, hb] = heatmapColor(heat, mode);
+          const idx = (y * w + x) * 4;
+          dst[idx] = Math.round((1 - alpha) * src[idx] + alpha * hr);
+          dst[idx + 1] = Math.round((1 - alpha) * src[idx + 1] + alpha * hg);
+          dst[idx + 2] = Math.round((1 - alpha) * src[idx + 2] + alpha * hb);
+          dst[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(out, 0, 0);
+    }
+
+    function updateUI() {
+      const preset = PRESETS[currentPresetKey];
+      const useTta = document.getElementById("ttaToggle").checked;
+      const flagTh = parseFloat(document.getElementById("flagSlider").value);
+      const passTh = parseFloat(document.getElementById("passSlider").value);
+      const alpha = parseFloat(document.getElementById("alphaSlider").value);
+
+      document.getElementById("flagVal").textContent = flagTh.toFixed(2);
+      document.getElementById("passVal").textContent = passTh.toFixed(2);
+      document.getElementById("alphaVal").textContent = alpha.toFixed(2);
+
+      const pReal = useTta ? preset.probRealTta : preset.probRealNoTta;
+      const pFake = 1 - pReal;
+
+      document.getElementById("mProbReal").textContent = `${(pReal * 100).toFixed(2)}%`;
+      document.getElementById("mProbFake").textContent = `${(pFake * 100).toFixed(2)}%`;
+      document.getElementById("mVerdict").textContent = pReal >= 0.5 ? "Real" : "Fake";
+      document.getElementById("mTta").textContent = useTta ? "Enabled (2-view)" : "Disabled (1-view)";
+      document.getElementById("mSamReal").textContent = `${(preset.samProbReal * 100).toFixed(2)}%`;
+
+      const banner = document.getElementById("zoneBanner");
+      const title = document.getElementById("zoneTitle");
+      const desc = document.getElementById("zoneDesc");
+      banner.className = "zone-banner";
+
+      if (pReal < flagTh) {
+        banner.classList.add("zone-1");
+        title.textContent = "Zone 1: Auto-Flag / Quarantine";
+        desc.textContent = `High-confidence synthetic indicator (P(Real) < ${flagTh.toFixed(2)}). Route to provisional quarantine / priority compliance review.`;
+      } else if (pReal > passTh) {
+        banner.classList.add("zone-3");
+        title.textContent = "Zone 3: Auto-Approve / Pass";
+        desc.textContent = `High-confidence authentic indicator (P(Real) > ${passTh.toFixed(2)}). Clear for standard distribution.`;
+      } else {
+        title.textContent = "Zone 2: Human Moderator Triage Queue";
+        desc.textContent = `Borderline confidence band (${flagTh.toFixed(2)}–${passTh.toFixed(2)}). Escalate to human moderator with spatial saliency inspection.`;
+      }
+
+      document.getElementById("origFoot").textContent = customImageData
+        ? "Uploaded custom face crop rendered at 224 × 224 for layout inspection."
+        : preset.note;
+
+      const oCtx = origCanvas.getContext("2d");
+      drawPortraitBase(oCtx, preset);
+      const baseData = oCtx.getImageData(0, 0, 224, 224);
+
+      renderHeatmapCanvas(clipCanvas, baseData, preset.clipFocus, "inferno", alpha);
+      renderHeatmapCanvas(samCanvas, baseData, preset.samFocus, "jet", alpha);
+    }
+
+    document.querySelectorAll(".preset-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".preset-btn").forEach((b) => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        currentPresetKey = btn.dataset.preset;
+        customImageData = null;
+        document.getElementById("imgUpload").value = "";
+        updateUI();
+      });
+    });
+
+    ["ttaToggle", "flagSlider", "passSlider", "alphaSlider"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", updateUI);
+      document.getElementById(id).addEventListener("change", updateUI);
+    });
+
+    document.getElementById("themeToggle").addEventListener("click", (e) => {
+      document.body.classList.toggle("dark");
+      e.target.textContent = document.body.classList.contains("dark") ? "Light Mode" : "Dark Mode";
+    });
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const target = btn.dataset.tab;
+        document.getElementById("triageTab").style.display = target === "triageTab" ? "block" : "none";
+        document.getElementById("benchTab").style.display = target === "benchTab" ? "block" : "none";
+      });
+    });
+
+    document.getElementById("imgUpload").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          const temp = document.createElement("canvas");
+          temp.width = 224;
+          temp.height = 224;
+          const tctx = temp.getContext("2d");
+          tctx.drawImage(img, 0, 0, 224, 224);
+          customImageData = tctx.getImageData(0, 0, 224, 224);
+          updateUI();
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    updateUI();
+  </script>
+</body>
+</html>

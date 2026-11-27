@@ -40,3 +40,8 @@ Across a four-stage progression—from single-domain `EfficientNet-B4` and multi
 pip install -r requirements.txt
 # Place clip_vit_l14_multilayer_head.pth in weights/ (or specify its path in the app sidebar)
 streamlit run app.py
+```
+
+## Ethics & Scope
+
+All experiments were conducted on established academic datasets under Teesside University ethics reference `2026 Oct 36071 BATTU`. The prototype is intended for research demonstration and human-in-the-loop triage support rather than standalone automated enforcement.

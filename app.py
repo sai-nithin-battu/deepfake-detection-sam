@@ -99,12 +99,6 @@ def load_sam_cnn(path: str | None, device_str: str):
 
 
 def build_linear_from_sklearn_or_torch(ckpt: object, expected_dim: int = 5120, device: torch.device = torch.device("cpu")) -> nn.Module:
-    """
-    Supports:
-      1. A PyTorch state_dict or nn.Module with weight (1, 5120) and bias (1,)
-      2. A dict containing 'coef_' and 'intercept_' (e.g., LogisticRegression export)
-      3. A fitted LogisticRegression / linear estimator directly
-    """
     layer = nn.Linear(expected_dim, 1)
 
     if isinstance(ckpt, nn.Module):
@@ -170,24 +164,13 @@ def get_cnn_transform() -> transforms.Compose:
 
 
 def extract_multilayer_descriptor(backbone: CLIPVisionModel, img_tensor: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Extracts 5,120-d L2-normalised descriptor fusing:
-      - Layer 12 CLS token (1024-d)
-      - Layer 16 CLS token (1024-d)
-      - Layer 20 CLS token (1024-d)
-      - Layer 20 spatial patch mean over 256 patches (1024-d)
-      - Layer 24 final post-layernorm pooled projection (1024-d)
-    Returns:
-      descriptor: (1, 5120) tensor
-      last_attn:  (1, num_heads, 257, 257) attention tensor from final encoder block
-    """
     outputs = backbone(
         pixel_values=img_tensor,
         output_hidden_states=True,
         output_attentions=True,
         return_dict=True,
     )
-    hidden_states = outputs.hidden_states  # tuple of 25 tensors: [embeddings, layer_1..layer_24]
+    hidden_states = outputs.hidden_states
     h12_cls = l2_norm(hidden_states[12][:, 0, :])
     h16_cls = l2_norm(hidden_states[16][:, 0, :])
     h20_seq = hidden_states[20]
@@ -224,7 +207,6 @@ def predict_multilayer_clip(
     prob_real = float(torch.sigmoid(logit).item())
     prob_fake = 1.0 - prob_real
 
-    # Mean CLS -> 256 spatial patches across all attention heads
     cls_to_patches = attn_orig[0, :, 0, 1:].mean(dim=0).reshape(1, 1, 16, 16)
     saliency_224 = F.interpolate(cls_to_patches, size=(224, 224), mode="bilinear", align_corners=False)
     sal_np = saliency_224.squeeze().cpu().numpy()
@@ -275,23 +257,20 @@ def compute_gradcam_sam(model: EffNetB4SAM, image: Image.Image, device: torch.de
         hook_b.remove()
 
 
-def route_three_zone_triage(prob_real: float, auto_flag_below: float = 0.30, auto_pass_above: float = 0.70) -> tuple[str, str, str]:
+def route_three_zone_triage(prob_real: float, auto_flag_below: float = 0.30, auto_pass_above: float = 0.70) -> tuple[str, str]:
     if prob_real < auto_flag_below:
         return (
             "Zone 1: Auto-Flag / Quarantine",
             "High-confidence synthetic indicator (P(Real) < threshold). Route to quarantine / priority compliance review.",
-            "#FEE2E2",
         )
     if prob_real > auto_pass_above:
         return (
             "Zone 3: Auto-Approve / Pass",
             "High-confidence authentic indicator (P(Real) > threshold). Clear for standard distribution.",
-            "#DCFCE7",
         )
     return (
         "Zone 2: Human Moderator Triage Queue",
         "Uncertain / borderline confidence band (0.30–0.70). Escalate to human moderator with saliency inspection.",
-        "#FEF3C7",
     )
 
 
@@ -333,9 +312,12 @@ def main() -> None:
         st.divider()
         st.markdown("**Reported Benchmarks (Model 4)**")
         st.markdown(
-            "- **140k Test:** 99.37% Acc (0.9995 AUC)\n"
-            "- **FF++ C23 (Video-Safe):** 82.27% Acc (0.9171 AUC)\n"
-            "- **CIPLab (Unseen):** 85.15% Acc (0.9183 AUC)\n"
+            "- **140k Test:** 99.37% Acc (0.9995 AUC)
+"
+            "- **FF++ C23 (Video-Safe):** 82.27% Acc (0.9171 AUC)
+"
+            "- **CIPLab (Unseen):** 85.15% Acc (0.9183 AUC)
+"
             "- **Celeb-DF v2:** 73.10% frame / 70.71% video"
         )
 
@@ -363,7 +345,7 @@ def main() -> None:
     result = predict_multilayer_clip(pil_img, backbone, head, device, use_tta=use_tta)
     prob_real = result["prob_real"]
     prob_fake = result["prob_fake"]
-    zone_label, zone_desc, _ = route_three_zone_triage(prob_real, auto_flag_th, auto_pass_th)
+    zone_label, zone_desc = route_three_zone_triage(prob_real, auto_flag_th, auto_pass_th)
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("P(Real)", f"{prob_real * 100:.2f}%")
